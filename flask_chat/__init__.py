@@ -7,7 +7,6 @@ from flask_bootstrap import Bootstrap
 
 # Flask extensions
 db = SQLAlchemy()
-bootstrap = Bootstrap()
 
 # Import models so that they are registered with SQLAlchemy
 from . import models  # noqa
@@ -24,7 +23,6 @@ def create_app(config_name=None):
 
     # Initialize flask extensions
     db.init_app(app)
-    bootstrap.init_app(app)
 
     from .flask_chat import main as main_blueprint
     app.register_blueprint(main_blueprint)
