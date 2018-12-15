@@ -2,7 +2,7 @@ from flask import g, jsonify
 
 from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth
 
-from flask_chat import db
+from . import db
 from .models import User
 
 # Authentication objects for username/password auth, token auth, and a

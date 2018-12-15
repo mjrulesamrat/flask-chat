@@ -1,7 +1,7 @@
 from flask import abort
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from flask_chat import db
+from . import db
 from .utils import timestamp
 
 
