@@ -57,6 +57,11 @@ class User(db.Model):
             'online': self.online
         }
 
+    def ping(self):
+        """Marks the user as recently seen and online."""
+        self.last_seen_at = timestamp()
+        self.online = True
+
 
 class Message(db.Model):
     """The Message model."""

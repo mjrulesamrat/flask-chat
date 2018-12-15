@@ -22,6 +22,10 @@ Bootstrap(app)
 # Import models so that they are registered with SQLAlchemy
 from .models import User, Message
 
+# Import authentication handlers
+from .auth import basic_auth, token_auth, token_optional_auth
+
+
 @app.route('/')
 def index():
     """Serve client-side application."""
@@ -44,9 +48,12 @@ def new_user():
 
 
 @app.route('/api/users', methods=['GET'])
+@token_optional_auth.login_required
 def get_users():
     """
     Return list of users.
+    This endpoint is publicly available, but if the client has a token it
+    should send it, as that indicates to the server that the user is online.
     """
     users = User.query.order_by(User.updated_at.asc(), User.nickname.asc())
     if request.args.get('online'):
@@ -58,23 +65,55 @@ def get_users():
 
 
 @app.route('/api/users/<id>', methods=['GET'])
+@token_optional_auth.login_required
 def get_user(id):
     """
     Return a user.
+    This endpoint is publicly available, but if the client has a token it
+    should send it, as that indicates to the server that the user is online.
     """
     return jsonify(User.query.get_or_404(id).to_dict())
 
 
 @app.route('/api/users/<id>', methods=['PUT'])
+@token_auth.login_required
 def edit_user(id):
     """
     Modify an existing user.
+    This endpoint is requires a valid user token.
+    Also: users can only modify themselves.
     """
     user = User.query.get_or_404(id)
-    # No authentication at the moment
-    # if user != g.current_user:
-    #     abort(403)
+    if user != g.current_user:
+        abort(403)
     user.from_dict(request.get_json() or {})
     db.session.add(user)
+    db.session.commit()
+    return '', 204
+
+
+@app.route('/api/tokens', methods=['POST'])
+@basic_auth.login_required
+def new_token():
+    """
+    Request a user token.
+    This endpoint is requires basic auth with nickname and password.
+    """
+    if g.current_user.token is None:
+        g.current_user.generate_token()
+        db.session.add(g.current_user)
+        db.session.commit()
+    return jsonify({'token': g.current_user.token})
+
+
+@app.route('/api/tokens', methods=['DELETE'])
+@token_auth.login_required
+def revoke_token():
+    """
+    Revoke a user token.
+    This endpoint is requires a valid user token.
+    """
+    g.current_user.token = None
+    db.session.add(g.current_user)
     db.session.commit()
     return '', 204
