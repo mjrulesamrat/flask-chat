@@ -1,4 +1,4 @@
-from .flask_chat import app
+from .flask_chat import app, db
 
 
-__all__ = [app]
+__all__ = [app, db]
