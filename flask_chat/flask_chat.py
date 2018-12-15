@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, request, jsonify, abort
+from flask import Flask, request, jsonify, abort, make_response
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_bootstrap import Bootstrap
@@ -44,7 +44,7 @@ def new_user():
     db.session.add(user)
     db.session.commit()
     r = jsonify(user.to_dict())
-    return r
+    return make_response(jsonify(User.query.get_or_404(id).to_dict()), 201)
 
 
 @app.route('/api/users', methods=['GET'])
@@ -115,5 +115,65 @@ def revoke_token():
     """
     g.current_user.token = None
     db.session.add(g.current_user)
+    db.session.commit()
+    return '', 204
+
+
+@app.route('/api/messages', methods=['POST'])
+@token_auth.login_required
+def new_message():
+    """
+    Post a new message.
+    This endpoint is requires a valid user token.
+    """
+    msg = Message.create(request.get_json() or {})
+    db.session.add(msg)
+    db.session.commit()
+    r = jsonify(msg.to_dict())
+    return make_response(jsonify(Message.query.get_or_404(msg.id).to_dict()), 201)
+
+
+@app.route('/api/messages', methods=['GET'])
+@token_optional_auth.login_required
+def get_messages():
+    """
+    Return list of messages.
+    This endpoint is publicly available, but if the client has a token it
+    should send it, as that indicates to the server that the user is online.
+    """
+    since = int(request.args.get('updated_since', '0'))
+    day_ago = timestamp() - 24 * 60 * 60
+    if since < day_ago:
+        # do not return more than a day worth of messages
+        since = day_ago
+    msgs = Message.query.filter(Message.updated_at > since).order_by(
+        Message.updated_at)
+    return jsonify({'messages': [msg.to_dict() for msg in msgs.all()]})
+
+
+@app.route('/api/messages/<id>', methods=['GET'])
+@token_optional_auth.login_required
+def get_message(id):
+    """
+    Return a message.
+    This endpoint is publicly available, but if the client has a token it
+    should send it, as that indicates to the server that the user is online.
+    """
+    return jsonify(Message.query.get_or_404(id).to_dict())
+
+
+@app.route('/api/messages/<id>', methods=['PUT'])
+@token_auth.login_required
+def edit_message(id):
+    """
+    Modify an existing message.
+    This endpoint is requires a valid user token.
+    Note: users are only allowed to modify their own messages.
+    """
+    msg = Message.query.get_or_404(id)
+    if msg.user != g.current_user:
+        abort(403)
+    msg.from_dict(request.get_json() or {})
+    db.session.add(msg)
     db.session.commit()
     return '', 204
